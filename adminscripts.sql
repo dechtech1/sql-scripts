@@ -645,13 +645,14 @@ GO
 
 --Enable Contained users in a database and create a contained user
 
-exec sp_configure 'contained database authentication', 1
-go
-reconfigure
-go
+EXEC sp_configure 'contained database authentication', 1;
+GO
+RECONFIGURE;
+GO
 
-alter database []
-set containment = partial
-go
+ALTER DATABASE [] SET CONTAINMENT = PARTIAL;
+GO
 
 CREATE USER [] WITH PASSWORD = '';
+
+GRANT [] ON [] TO [];
