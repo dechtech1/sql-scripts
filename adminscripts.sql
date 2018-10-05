@@ -656,3 +656,7 @@ GO
 CREATE USER [] WITH PASSWORD = '';
 
 GRANT [] ON [] TO [];
+
+--Change the Pointed address of a Linked Server
+
+EXEC sp_setnetname [linked server name], [new address]
