@@ -650,12 +650,129 @@ GO
 RECONFIGURE;
 GO
 
-ALTER DATABASE [] SET CONTAINMENT = PARTIAL;
+ALTER DATABASE <database> SET CONTAINMENT = PARTIAL;
 GO
 
-CREATE USER [] WITH PASSWORD = '';
+CREATE USER <username> WITH PASSWORD = <password>;
 
-GRANT [] ON [] TO [];
+--Grant permissions to an user
+
+--Database permissions:
+GRANT <permission> TO <user>;
+--Schema permissions:
+GRANT <permission> ON SCHEMA::<schema_name> TO <user>;
+--Object permissions:
+GRANT <permission> ON OBJECT::<object_name> TO <user>;
+
+--For example, to set up a read-only user:
+--First, allow the user to connect to the database
+USE <database>;
+GO
+GRANT CONNECT TO <user>;
+--Then, grant select permissions on the database, schema or tables as needed.
+GRANT SELECT TO <user>;
+--OR
+GRANT SELECT ON SCHEMA::<schema_name> TO <user>;
+--OR
+GRANT SELECT ON OBJECT::<object_name> TO <user>;
+--Finally, grant execute permissions on the schema or SP/functions as needed
+GRANT EXECUTE TO <user>;
+--OR
+GRANT EXECUTE ON SCHEMA::<schema_name> TO <user>;
+--OR
+GRANT EXECUTE ON OBJECT::<object_name> TO <user>;
+
+--Check the server and database permissions granted to each user
+
+USE <database>;
+GO
+
+SELECT
+	pr.principal_id [User ID],
+	pr.name Name,
+	pr.type_desc [User Type],
+	pr.create_date [Creation Date],
+	pr.modify_date [Last Modified Date],
+	'N/A' [Auth Type],
+	'SERVER' [Object Type],
+    pe.state_desc [Permission State],
+	pe.permission_name [Permission Type],
+	@@SERVERNAME [Object Name]
+FROM
+	sys.server_principals AS pr
+JOIN
+	sys.server_permissions AS pe
+ON
+	pe.grantee_principal_id = pr.principal_id
+WHERE
+	PR.name <> 'public'
+	AND PR.name <> 'guest'
+UNION ALL
+SELECT DISTINCT
+	pr.principal_id [User ID],
+	pr.name Name,
+	pr.type_desc [User Type],
+	pr.create_date [Creation Date],
+	pr.modify_date [Last Modified Date],
+    pr.authentication_type_desc [Auth Type],
+	ISNULL(pe.class_desc + ': ' + o.type_desc, pe.class_desc) [Object Type],
+	pe.state_desc [Permission State],
+    pe.permission_name [Permission Type],
+	COALESCE(DB_NAME() + '.' + s.name + '.' + o.name, DB_NAME() + '.' + s.name, DB_NAME()) [Object Name]
+FROM
+	sys.database_principals AS pr
+JOIN
+	sys.database_permissions AS pe
+ON
+	pe.grantee_principal_id = pr.principal_id
+LEFT JOIN
+	sys.objects AS o
+ON
+	pe.major_id = o.object_id
+LEFT JOIN
+	sys.schemas AS s
+ON
+	ISNULL(o.schema_id, pe.major_id) = s.schema_id
+WHERE
+	PR.name <> 'public'
+	AND PR.name <> 'guest'
+
+--Check the server and database roles' membership
+
+USE <database>;
+GO
+
+SELECT
+	srm.role_principal_id [User ID],
+	role.name AS [Server Role],
+	member.name AS [Server Username]
+FROM
+	sys.server_role_members srm
+JOIN
+	sys.server_principals AS role
+ON
+	srm.role_principal_id = role.principal_id
+JOIN
+	sys.server_principals AS member
+ON
+	srm.member_principal_id = member.principal_id
+UNION ALL
+SELECT
+	DRM.role_principal_id [User ID],
+	DP1.name AS [Database Role],
+	ISNULL(DP2.name, 'No members') AS [Database Username]
+FROM
+	sys.database_role_members AS DRM
+RIGHT OUTER JOIN
+	sys.database_principals AS DP1
+ON
+	DRM.role_principal_id = DP1.principal_id
+LEFT OUTER JOIN
+	sys.database_principals AS DP2
+ON
+	DRM.member_principal_id = DP2.principal_id
+WHERE
+	DP1.type = 'R'
 
 --Change the Pointed address of a Linked Server
 
